@@ -3,12 +3,25 @@ import os
 import random
 
 from browser_use import Agent, BrowserProfile, BrowserSession
-from browser_use.llm.google.chat import ChatGoogle
 
-LLM = ChatGoogle(
-	model='gemini-3-flash-preview',
-	api_key=os.environ['GOOGLE_API_KEY'],
-)
+
+def make_llm():
+	provider = os.environ.get('LLM_PROVIDER', 'openrouter')
+	if provider == 'google':
+		from browser_use.llm.google.chat import ChatGoogle
+		return ChatGoogle(
+			model='gemini-3-flash-preview',
+			api_key=os.environ['GOOGLE_API_KEY'],
+		)
+	else:
+		from browser_use.llm.openrouter.chat import ChatOpenRouter
+		return ChatOpenRouter(
+			model='google/gemini-3-flash-preview',
+			api_key=os.environ['OPENROUTER_API_KEY'],
+		)
+
+
+LLM = make_llm()
 
 CDP_URL = 'http://10.0.0.175:9223'
 REPLY_COUNT = 5
@@ -27,11 +40,15 @@ def make_reply_task(replied_authors: list[str]) -> str:
 	return f"""\
 在当前 feed 中找一条你觉得有意思的帖子，点进去看完完整内容后，写一条自然的回复并提交。
 
-操作步骤：
-1. 在 feed 中选一条感兴趣的帖子
-2. 点击该帖子进入详情页，阅读完整内容（feed 里的帖子经常被截断，必须点进去看全文）
-3. 看完之后再点击回复按钮，输入回复内容并提交
-4. 提交后立刻结束任务（done）
+操作步骤（严格按顺序，每步只做一个动作）：
+1. 在 feed 中选一条感兴趣的帖子，点击帖子正文进入详情页
+2. 阅读完整内容（feed 里的帖子经常被截断，必须点进去看全文）
+3. 找到详情页底部的回复输入框，点击输入框使其获得焦点
+4. 在回复输入框中输入你的回复文字（这一步只输入文字，不要点击任何按钮）
+5. 输入完成后，找到回复输入框旁边的蓝色"回复"或"Reply"提交按钮并点击
+   注意：这个提交按钮是回复框右侧/下方的蓝色按钮，不是帖子底部带数字的回复图标！
+   带数字的按钮（如"63 回复"）是查看回复数的按钮，点了会重新弹出回复框，不会提交！
+6. 等待看到"你的帖子已发送"提示后，再调用 done 结束任务
 
 回复要求：
 - 只回复一条！回复一条之后立即 done，不要继续找下一条
@@ -43,7 +60,8 @@ def make_reply_task(replied_authors: list[str]) -> str:
 - 不要使用 emoji 或表情符号，纯文字回复
 - 不要回复以下已经回复过的作者：{authors_str}
 
-重要：必须先点进帖子看完全文再回复，不要在 feed 流里直接回复截断的内容！提交一条回复后立刻结束任务！
+重要：必须先点进帖子看完全文再回复！提交一条回复后立刻结束任务！
+重要：必须看到"你的帖子已发送"的提示才算提交成功，否则不要调用 done！
 
 提交后报告：你回复了谁（@用户名）的什么内容的帖子，以及你的回复原文。"""
 
@@ -74,7 +92,7 @@ async def main():
 
 		print('💬 寻找帖子并回复...')
 		agent.add_new_task(make_reply_task(replied_authors))
-		result = await agent.run(max_steps=12)
+		result = await agent.run(max_steps=15)
 
 		content = result.final_result()
 		if content:
