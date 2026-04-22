@@ -1927,12 +1927,17 @@ class DefaultActionWatchdog(BaseWatchdog):
 
 				# After first char on contenteditable: check if dropped and retype if needed
 				if i == 0 and _check_first_char and _first_char:
-					check_result = await cdp_session.cdp_client.send.Runtime.evaluate(
-						params={'expression': 'document.activeElement.textContent'},
+					await asyncio.sleep(0.25)  # generous delay for React/Lexical to flush DOM
+					check_result = await cdp_session.cdp_client.send.Runtime.callFunctionOn(
+						params={
+							'objectId': object_id,
+							'functionDeclaration': 'function() { return (this.innerText || this.textContent || "").trim(); }',
+							'returnByValue': True,
+						},
 						session_id=cdp_session.session_id,
 					)
 					content = check_result.get('result', {}).get('value', '')
-					if _first_char not in content:
+					if content and _first_char not in content:
 						self.logger.debug(f'🎯 First char "{_first_char}" was dropped (leaf-start bug), retyping')
 						# Retype the first character - cursor now past leaf-start
 						modifiers, vk_code, base_key = self._get_char_modifiers_and_vk(_first_char)
