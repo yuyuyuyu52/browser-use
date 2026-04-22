@@ -1,12 +1,14 @@
 import asyncio
+import os
 import random
 
 from browser_use import Agent, BrowserProfile, BrowserSession
-from browser_use.llm.google.chat import ChatGoogle
+from browser_use.llm.anthropic.chat import ChatAnthropic
 
-LLM = ChatGoogle(
-	model='gemini-3-flash-preview',
-	api_key='AIzaSyCJo-PSW85z26EZ1hg2aSuPNYzDKIvSgWk',
+LLM = ChatAnthropic(
+	model='MiniMax-M2.7',
+	api_key=os.environ['MINIMAX_API_KEY'],
+	base_url=os.environ.get('MINIMAX_BASE_URL', 'https://api.minimaxi.chat/v1'),
 )
 
 CDP_URL = 'http://10.0.0.175:9223'
