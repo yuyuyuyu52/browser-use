@@ -3,12 +3,11 @@ import os
 import random
 
 from browser_use import Agent, BrowserProfile, BrowserSession
-from browser_use.llm.anthropic.chat import ChatAnthropic
+from browser_use.llm.google.chat import ChatGoogle
 
-LLM = ChatAnthropic(
-	model='MiniMax-M2.7',
-	api_key=os.environ['MINIMAX_API_KEY'],
-	base_url=os.environ.get('MINIMAX_BASE_URL', 'https://api.minimaxi.chat/v1'),
+LLM = ChatGoogle(
+	model='gemini-3-flash-preview',
+	api_key=os.environ['GOOGLE_API_KEY'],
 )
 
 CDP_URL = 'http://10.0.0.175:9223'
@@ -63,11 +62,10 @@ async def main():
 		task=make_read_task(is_first=True),
 		llm=LLM,
 		browser_session=browser_session,
-		max_steps=8,
 	)
 
 	print('👀 打开 x.com 并浏览 feed...')
-	await agent.run()
+	await agent.run(max_steps=10)
 
 	for i in range(REPLY_COUNT):
 		print(f'\n{"=" * 60}')
@@ -76,7 +74,7 @@ async def main():
 
 		print('💬 寻找帖子并回复...')
 		agent.add_new_task(make_reply_task(replied_authors))
-		result = await agent.run()
+		result = await agent.run(max_steps=12)
 
 		content = result.final_result()
 		if content:
@@ -92,7 +90,7 @@ async def main():
 
 			print('👀 继续浏览 feed...')
 			agent.add_new_task(make_read_task(is_first=False))
-			await agent.run()
+			await agent.run(max_steps=8)
 
 	print(f'\n{"=" * 60}')
 	print(f'🎉 任务完成！共尝试 {REPLY_COUNT} 次回复')
